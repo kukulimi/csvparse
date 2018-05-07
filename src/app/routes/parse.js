@@ -204,7 +204,7 @@ function selectReport(uid) {
         dbutil.prepareDatabase();
 
         const queryString =
-            'select rta.hotel_id, rta.rate_code, hra.property_hotel_name, rta.rate_type_class_code, rta.currency_code, rta.rate_type_name, ' +
+            'select rta.hotel_id, hra.property_hotel_name, rta.rate_code, rta.rate_type_class_code, rta.currency_code, rta.rate_type_name, ' +
             '    rta.default_short_description, rta.default_long_description, rta.active,rta.negotiated, rta.include_tax_by_default, ' +
             '    rta.commission_policy, rta.default_guarantee_policy, rta.default_cancel_policy, rta.breakfast_included_in_rate, ' +
             '    rta.meal_plan, rta.rate_category_code, rta.derive_type, rta.derive_rate_code, rta.default_price, ' +
