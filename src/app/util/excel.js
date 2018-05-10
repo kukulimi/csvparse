@@ -4,7 +4,8 @@ const CONSTANTS = {
     sheetName : {   // sheet will be selected by it's name
         rateTemplateUpdate : 'Rate Configuration',
         priceSeasonTemplate : 'Pricing Formulas',
-        hotelRateAudit : 'HotelRateAudit'
+        hotelRateAudit : 'HotelRateAudit',
+        stayRestrictions : 'Stay Restrictions'
     },
     excelSheetStartRange : {
         hotelRateAudit : {s:{c:2, r:6}, e:{c:31}} // data starts in 3rd col and 7th row. can't define end row as it differs

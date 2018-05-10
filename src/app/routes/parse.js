@@ -13,15 +13,21 @@ const CONSTANTS = {
     columnFilter :  { // cols to extract
         rateTemplateUpdate : [1,2,5,6,7,8,9,11,12,13,18,19,20,22,23,24,25,26,27],
         priceSeasonTemplate : [0,1,2,3,4,5,6,7,8,9,11,12,13,16],
-        hotelRateAudit : [3,5,7,22,23,24,25]
+        hotelRateAudit : [3,5,7,22,23,24,25],
+        stayRestrictions : [0,1,16]
     },
     tableName : {
         rateTemplateUpdate : 'rate_template_update',
         priceSeasonTemplate : 'price_season_template',
-        hotelRateAudit : 'hotel_rate_audit'
+        hotelRateAudit : 'hotel_rate_audit',
+        stayRestrictions : 'stay_restrictions'
     },
-    noneNullColumnNm : {    // to decide when to stop reading rows
-        hotelRateAudit : 5
+    noneNullColumnNm : {    // to remove rows that are not part of proper data (This is a new col number after filtered by columnFilter)
+        hotelRateAudit : 1, // === CONSTANTS.columnFilter.hotelRateAudit[5]
+        stayRestrictions : 2// === CONSTANTS.columnFilter.stayRestrictions[16]
+    },
+    forceReplace : {    // use REPLACE INTO instead of INSERT INTO
+        stayRestrictions : true
     }
 };
 
@@ -55,7 +61,7 @@ module.exports = function(app) {
         res.send('done');
     });
 
-    app.post('/upload', upload.array('file1', 3), function(req, res) {
+    app.post('/upload', upload.array('file1', 4), function(req, res) {
         if (!req.files) {
             return res.status(400).send('No files were uploaded.');
         }
@@ -82,7 +88,7 @@ module.exports = function(app) {
             const fileType = getFileTypeByName(file);
             const data = excel.readExcelSheet(file, fileType);
             const filteredData = filterCols(data, fileType);
-            return insertRecordsToTable(filteredData, CONSTANTS.tableName[fileType], uid);
+            return insertRecordsToTable(filteredData, fileType, uid);
         })).then((uid) => {
             // console.log('get reports from db.. with uid : ', uid[0]);
             selectReport(uid[0]).then(() => {
@@ -110,7 +116,7 @@ function getFileTypeByName(filename) {
     } else if (filename.includes('Price')) {
         type = 'priceSeasonTemplate';
     } else if (filename.includes('Stay')) {
-        type = 'stayRestriction';
+        type = 'stayRestrictions';
     } else {
         type = 'hotelRateAudit';
     }
@@ -131,6 +137,8 @@ function filterCols(data, fileType){
             return includedColsNm.includes(idx);
         });
     });
+
+    // Filter rows that should not be empty with certain cols. (Remove dirty data)
     if (nonNullColNm) {
         filteredData = filteredData.filter((record) => {
             return !!record[nonNullColNm];
@@ -143,10 +151,11 @@ function filterCols(data, fileType){
  * Insert records - Bulk insert doesn't seem to be working with current mysql module... I
  * Insert records using loops and resolve promise when all done.
  * @param tableData
- * @param tableName
+ * @param fileType
  * @returns {*|Promise}
  */
-function insertRecordsToTable(tableData, tableName, uid) {
+function insertRecordsToTable(tableData, fileType, uid) {
+    const tableName = CONSTANTS.tableName[fileType];
     return new Promise((resolve, reject) => {
         const [columns, ...rows] = tableData;
         let records = rows.map(row => {
@@ -173,7 +182,7 @@ function insertRecordsToTable(tableData, tableName, uid) {
             Promise.all(records.map((record) => {
                 record[`uid`] = uid;
                 return new Promise((resolve, reject) => {
-                    var query = dbutil.runQuery(`INSERT INTO ${tableName} SET ?`, record);
+                    var query = dbutil.runQuery(`${CONSTANTS.forceReplace[fileType] ? 'REPLACE' : 'INSERT'} INTO ${tableName} SET ?`, record);
                     query
                         .on('error', function(err) {
                             // Handle error, an 'end' event will be emitted after this as well
@@ -215,10 +224,11 @@ function selectReport(uid) {
             '    rta.meal_plan, rta.rate_category_code, rta.derive_type, rta.derive_rate_code, rta.default_price, ' +
             '    pst.start_day, pst.start_month, pst.start_year, pst.end_day, pst.end_month, pst.end_year, pst.no_end_date,' +
             '    pst.room_code, pst.base_price, pst.derived_formula, pst.factor, pst.include_tax_by_default,' +
-            '    hra.mapping_amadeus, hra.mapping_galileo, hra.mapping_sabre, hra.mapping_worldspan' +
+            '    hra.mapping_amadeus, hra.mapping_galileo, hra.mapping_sabre, hra.mapping_worldspan, sr.min_stay_arrival ' +
             '    from price_season_template pst ' +
             'left outer join rate_template_update rta on rta.hotel_id = pst.hotel_id and rta.rate_code = pst.rate_code and rta.uid = pst.uid ' +
             'left outer join hotel_rate_audit hra on rta.hotel_id = hra.property_hotel_id and rta.rate_code = hra.codes_redx_rate_type_code and hra.uid = pst.uid ' +
+            'left outer join stay_restrictions sr on rta.hotel_id = sr.hotel_id and rta.rate_code = sr.rate_code and sr.uid = pst.uid ' +
             `where pst.uid = ? order by rta.hotel_id;`;
         try {
             let query = dbutil.runQuery(queryString, uid, function (error, results, fields) {

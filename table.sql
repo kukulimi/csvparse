@@ -64,19 +64,13 @@ create table hotel_rate_audit
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 
-drop table stay_restriction;
+drop table stay_restrictions;
 
-create table stay_restriction
+create table stay_restrictions
 (
 `uid` varchar(10) not null,
 `hotel_id` varchar(10) not null,
 `rate_code` varchar(10) not null,
-`start_day` text default '',
-`start_month` text default '',
-`start_year` text default '',
-`end_day` text default '',
-`end_month` text default '',
-`end_year` text default '',
 `min_stay_arrival` text default '',
- KEY `hotel_rate_audit_key` (`uid`, `hotel_id`,`rate_code`)
+ UNIQUE KEY `stay_restrictions_key` (`uid`, `hotel_id`,`rate_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
